@@ -112,7 +112,7 @@ footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
 </div>
 <pre><span>let timer;</span><span>search.addEventListener('input', () =&gt; {</span><span class="add">  clearTimeout(timer);</span><span class="add">  timer = setTimeout(() =&gt; {</span><span>    const q = search.value.trim().toLowerCase();</span><span>    const hits = filter(q);          // text built once</span><span>    render(hits, hits.length);       // first 50 only</span><span class="add">  }, 150);</span><span>});</span></pre>
 <div class="say r">Because <b>one input handler ran for hundreds of milliseconds</b>, when <b>the user typed in search</b>, on <b>a throttled mobile CPU</b>.</div>
-<p>My own test runs, on a Mac with Chrome 159, CPU 4x slowdown and Slow 4G: the slow page had an INP of 378 to 671 ms across three runs, and the fixed page 16 ms. Your numbers will differ. Measure your own.</p>
+<p>My own test runs, on a Mac with Chrome 159, CPU 4x slowdown and Slow 4G, real key presses: the slow page had an INP of 504 ms and 464 ms in two runs, and the fixed page 40 ms. Your numbers will differ. Measure your own.</p>
 
 <h3 style="margin-top:28px">Why this matters in India</h3>
 <ul>
