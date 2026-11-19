@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stop guessing: Chrome DevTools notes</title>
+<meta name="description" content="Notes from a DevFest Jalandhar 2026 talk: three bugs in one page, found with Chrome DevTools evidence.">
+<style>
+@font-face { font-family: 'Sans'; src: url(fonts/google-sans-flex-latin-wght-normal.woff2) format('woff2'); font-weight: 1 1000; font-display: swap; }
+@font-face { font-family: 'Code'; src: url(fonts/google-sans-code-latin-wght-normal.woff2) format('woff2'); font-weight: 300 800; font-display: swap; }
+:root {
+  --bg: #fff; --ink: #1f1f1f; --muted: #5f6368; --line: #dadce0; --bg2: #f8f9fa;
+  --blue: #1a73e8; --blue-soft: #e8f0fe; --blue-ink: #174ea6;
+  --green: #188038; --green-soft: #e6f4ea; --green-ink: #0d652d;
+  --red: #d93025; --red-soft: #fce8e6; --red-ink: #a50e0e;
+  --yellow: #b06000; --yellow-soft: #fef7e0;
+  --code: #0e1013; --code-ink: #e8eaed;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1013; --ink: #f1f3f4; --muted: #9aa0a6; --line: #2e3238; --bg2: #1b1e23;
+    --blue: #8ab4f8; --blue-soft: #12253f; --blue-ink: #aecbfa;
+    --green: #81c995; --green-soft: #10291a; --green-ink: #a8dab5;
+    --red: #f28b82; --red-soft: #3a1613; --red-ink: #f6aea9;
+    --yellow: #fdd663; --yellow-soft: #3a2f0b;
+    --code: #1b1e23; 
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: 'Sans', system-ui, sans-serif; font-size: 18px; line-height: 1.55; }
+main { max-width: 760px; margin: 0 auto; padding: 32px 20px 80px; }
+.bar { display: flex; gap: 8px; margin-bottom: 28px; }
+.bar i { width: 36px; height: 10px; border-radius: 5px; display: block; }
+h1 { font-size: clamp(40px, 9vw, 64px); line-height: 1.02; letter-spacing: -0.03em; font-weight: 580; margin: 0 0 14px; }
+h2 { font-size: 30px; line-height: 1.15; letter-spacing: -0.02em; font-weight: 580; margin: 56px 0 14px; }
+h3 { font-size: 20px; margin: 0 0 6px; font-weight: 620; }
+p { margin: 0 0 14px; }
+a { color: var(--blue); text-underline-offset: 3px; }
+.lead { font-size: 21px; color: var(--muted); }
+.kicker { font-size: 13px; font-weight: 650; letter-spacing: 0.12em; text-transform: uppercase; margin: 0 0 8px; }
+.cards { display: grid; gap: 12px; margin: 16px 0; }
+.card { border-radius: 20px; padding: 18px 20px; background: var(--bg2); }
+.card p:last-child { margin-bottom: 0; }
+.blue { background: var(--blue-soft); color: var(--blue-ink); } .blue .kicker { color: var(--blue); }
+.green { background: var(--green-soft); color: var(--green-ink); } .green .kicker { color: var(--green); }
+.red { background: var(--red-soft); color: var(--red-ink); } .red .kicker { color: var(--red); }
+.yellow { background: var(--yellow-soft); color: var(--ink); } .yellow .kicker { color: var(--yellow); }
+.card a { color: inherit; }
+code, pre { font-family: 'Code', ui-monospace, Menlo, monospace; }
+p code, li code { font-size: 0.88em; background: var(--bg2); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; word-break: break-word; }
+pre { background: var(--code); color: var(--code-ink); border-radius: 16px; padding: 14px 0; margin: 14px 0; overflow-x: auto; font-size: 14.5px; line-height: 1.6; }
+pre span { display: block; padding: 0 16px; white-space: pre; }
+pre .del { background: #3a1613; color: #f6aea9; } pre .add { background: #10291a; color: #a8dab5; }
+.say { border-left: 6px solid var(--blue); padding: 4px 0 4px 16px; margin: 14px 0; font-size: 19px; }
+.green + .say, .say.g { border-color: var(--green); } .say.r { border-color: var(--red); }
+.links { display: grid; gap: 10px; margin: 14px 0; }
+.links a { display: block; padding: 14px 18px; border-radius: 16px; border: 1px solid var(--line); text-decoration: none; color: var(--ink); }
+.links a b { display: block; color: var(--blue); font-weight: 620; }
+.links a small { color: var(--muted); font-size: 15px; }
+ul { padding-left: 1.2em; margin: 0 0 14px; } li { margin-bottom: 6px; }
+.src { font-size: 14.5px; color: var(--muted); }
+footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 15px; color: var(--muted); }
+@media (min-width: 640px) { .cards.c3 { grid-template-columns: repeat(3, 1fr); } .cards.c2 { grid-template-columns: repeat(2, 1fr); } body { font-size: 19px; } }
+</style>
+</head>
+<body>
+<main>
+<div class="bar"><i style="background:#4285f4"></i><i style="background:#ea4335"></i><i style="background:#fbbc04"></i><i style="background:#34a853"></i></div>
+
+<h1>Stop guessing.</h1>
+<p class="lead">Notes from my Chrome DevTools talk at DevFest Jalandhar 2026. One page, three bugs, and the evidence for each. Ishan Katoch.</p>
+
+<h2>Try the page yourself</h2>
+<div class="links">
+  <a href="../"><b>The slow page</b><small>Open it on your phone and type "flutter" in the search box. Does each letter feel instant?</small></a>
+  <a href="../broken/"><b>Bug 1: nothing loads</b><small>It says "Loading events..." forever. Open DevTools and look at the Console.</small></a>
+  <a href="../stage2/"><b>Bug 2: a JSON error</b><small>Fix 1 applied. The Console now blames JSON. Look at the Network tab.</small></a>
+  <a href="../fixed/"><b>All three fixed</b><small>Compare it with the slow page.</small></a>
+</div>
+<p class="src">The events are fake and generated. Source code: <a href="https://github.com/ishan-1010/devfest-devtools-demo">github.com/ishan-1010/devfest-devtools-demo</a>.</p>
+
+<h2>Three tools, in this order</h2>
+<div class="cards c3">
+  <div class="card blue"><p class="kicker">1 · Console</p><h3>What did the code say?</h3><p>Errors and warnings, with the line.</p></div>
+  <div class="card green"><p class="kicker">2 · Network</p><h3>What did the network say?</h3><p>Every request, its status and its response.</p></div>
+  <div class="card red"><p class="kicker">3 · Performance</p><h3>What did the main thread do?</h3><p>Where the time went, key by key.</p></div>
+</div>
+<p>Each bug ends with one sentence: <b>Because</b> [what you saw], <b>when</b> [what happened], <b>on</b> [which setup]. I took the idea from Rick Viscomi's talk on the Performance panel at SquiggleConf.</p>
+
+<h2>Bug 1: Console</h2>
+<p>The list says "Loading events..." and never changes. The Console prints:</p>
+<pre><span class="del">Uncaught TypeError: Cannot read properties of null (reading 'addEventListener')   app.js:45</span></pre>
+<p>Line 45 is <code>search.addEventListener(...)</code>. <code>search</code> is <code>null</code>, so <code>getElementById('search')</code> found nothing. The script sits in the <code>head</code> and runs before the browser has read the <code>body</code>. Pause on the first line of <code>app.js</code> and open Elements: there is no <code>body</code> yet.</p>
+<pre><span class="del">&lt;script src="app.js"&gt;&lt;/script&gt;</span><span class="add">&lt;script src="app.js" defer&gt;&lt;/script&gt;</span></pre>
+<div class="say">Because <b>getElementById returned null</b>, when <b>app.js ran inside the head</b>, on <b>first load</b>.</div>
+
+<h2>Bug 2: Network</h2>
+<p>With bug 1 fixed, the Console says <code>Unexpected token '&lt;', "&lt;!DOCTYPE "... is not valid JSON</code>. That sounds like broken data. Open the Network tab, find the row named <code>events</code>, and read its status: <b>404</b>. Open the Response tab: it is an HTML page that says <code>Cannot GET /api/events</code>. The data was fine. The address was wrong.</p>
+<pre><span class="del">const res = await fetch('/api/events');</span><span class="add">const res = await fetch('/api/events.json');</span></pre>
+<p>A 404 does not mean the server is down. It means the server is fine and nothing is at that address. Before you edit code, you can test the fix in DevTools: right-click the request and resend it as a fetch.</p>
+<div class="say g">Because <b>the response was a 404 HTML page</b>, when <b>the page fetched /api/events</b>, on <b>every load</b>.</div>
+<p>Once it works, look at the Size column. The data is 490 KB for 4000 events, sent uncompressed by my demo server. Real servers usually compress. Try the Slow 4G throttle and watch the Time column.</p>
+
+<h2>Bug 3: Performance</h2>
+<p>On a laptop, typing feels fine. Your user is on a phone. Throttle first (CPU 4x slowdown and Slow 4G), then record, type "flutter", and stop. Look for tasks with a red corner: they ran longer than 50 ms. Open Bottom-Up to see where the time went. In my runs it was Layout, <code>render</code>, <code>editDistance</code> and <code>score</code>.</p>
+<p>Every keystroke scored all 4000 events letter by letter, sorted them, and rebuilt the list. Typing "f" matches 2001 events, so it drew 2001 cards. The browser has one main thread. While it runs your function, it cannot paint.</p>
+<div class="cards c2">
+  <div class="card green"><h3>Debounce</h3><p>Wait 150 ms after the last key.</p></div>
+  <div class="card green"><h3>Prepare once</h3><p>Build the lowercase search text one time.</p></div>
+  <div class="card green"><h3>Plain includes</h3><p>No scoring, no sorting.</p></div>
+  <div class="card green"><h3>Show 50</h3><p>Render only the first 50 results.</p></div>
+</div>
+<pre><span>let timer;</span><span>search.addEventListener('input', () =&gt; {</span><span class="add">  clearTimeout(timer);</span><span class="add">  timer = setTimeout(() =&gt; {</span><span>    const q = search.value.trim().toLowerCase();</span><span>    const hits = filter(q);          // text built once</span><span>    render(hits, hits.length);       // first 50 only</span><span class="add">  }, 150);</span><span>});</span></pre>
+<div class="say r">Because <b>one input handler ran for hundreds of milliseconds</b>, when <b>the user typed in search</b>, on <b>a throttled mobile CPU</b>.</div>
+<p>My own test runs, on a Mac with Chrome 159, CPU 4x slowdown and Slow 4G: the slow page had an INP of 378 to 671 ms across three runs, and the fixed page 16 ms. Your numbers will differ. Measure your own.</p>
+
+<h3 style="margin-top:28px">Why this matters in India</h3>
+<ul>
+  <li>Android is 94.84% of mobile devices in India, October 2026. <a href="https://gs.statcounter.com/os-market-share/mobile/india">StatCounter</a>.</li>
+  <li>77% of mobile sites have good INP (200 ms or less), against 97% of desktop sites. <a href="https://almanac.httparchive.org/en/2025/performance">HTTP Archive, Web Almanac 2025</a>.</li>
+  <li>redBus cut its search page INP from 870 to 900 ms down to 350 to 370 ms, and reports a 7% overall increase in sales. The article gives no period or control group, so read it as their report. <a href="https://web.dev/case-studies/redbus-inp">web.dev case study</a>.</li>
+  <li>INP: good is 200 ms or less, poor is over 500 ms. <a href="https://web.dev/articles/inp">web.dev</a>.</li>
+</ul>
+<p class="src">A 4x CPU slowdown is 4x slower than your own laptop. It is not a budget phone. Test on a real phone when you can.</p>
+
+<h2>AI assistance in DevTools</h2>
+<p>Turn it on in DevTools Settings, under AI innovations. You must opt in and sign in, you must be 18 or older, and Chrome labels it experimental.</p>
+<div class="card yellow">
+  <p class="kicker">Read this first</p>
+  <p>The Settings page says that Console Insights sends the console message, its stack trace, related source code and network headers to Google, and that AI assistance sends chat messages, data the page exposes to DevTools, and what you select (requests, files, performance traces). It says human reviewers may see this. Do not use it on pages with private data.</p>
+</div>
+<p>My use: form your own read first, then ask. On this demo I asked "why is typing slow?" and it named <code>score</code>, <code>editDistance</code>, rebuilding the list with <code>innerHTML</code> on every input, and no debounce. It matched what I had found. It also suggested a Web Worker, which is more than this page needs. Check every number and every cause in the trace before you put it in a bug report.</p>
+<p><a href="https://developer.chrome.com/docs/devtools/ai-assistance">AI assistance documentation</a></p>
+
+<h2>Agents use DevTools too</h2>
+<p>The same three questions, asked by software. These came out of Google I/O 2026 and change fast, so check the status before you rely on them.</p>
+<div class="links">
+  <a href="https://github.com/ChromeDevTools/chrome-devtools-mcp"><b>Chrome DevTools for agents</b><small>An MCP server and CLI that let a coding agent read the console, inspect requests and record traces. Try: npx -y chrome-devtools-mcp@latest</small></a>
+  <a href="https://developer.chrome.com/docs/modern-web-guidance"><b>Modern Web Guidance</b><small>Skills for coding agents that point them to modern web features, using Baseline data. Early preview.</small></a>
+  <a href="https://web.dev/baseline"><b>Baseline</b><small>Which web features work across the major browsers.</small></a>
+  <a href="https://developer.chrome.com/blog/chrome-at-io26"><b>Chrome at Google I/O 2026</b><small>The full list of announcements, including WebMCP (an origin trial from Chrome 149).</small></a>
+  <a href="https://developer.chrome.com/docs/ai/prompt-api"><b>Built-in AI: the Prompt API</b><small>A Gemini Nano model that runs on the device. It needs a lot of free storage and a capable GPU or 16 GB of RAM, so check the requirements.</small></a>
+</div>
+
+<h2>Tonight</h2>
+<div class="cards c3">
+  <div class="card blue"><p class="kicker">1 · Console</p><p>Open your own project and reload. Is anything red?</p></div>
+  <div class="card green"><p class="kicker">2 · Network</p><p>Any red status? Any file that is far bigger than you expected?</p></div>
+  <div class="card red"><p class="kicker">3 · Performance</p><p>Set CPU to 4x slowdown. Type, scroll and tap. Record.</p></div>
+</div>
+
+<h2>Where to read more</h2>
+<div class="links">
+  <a href="https://developer.chrome.com/docs/devtools/console"><b>Console</b></a>
+  <a href="https://developer.chrome.com/docs/devtools/network"><b>Network</b></a>
+  <a href="https://developer.chrome.com/docs/devtools/performance"><b>Performance</b></a>
+  <a href="https://web.dev/articles/optimize-long-tasks"><b>Optimize long tasks</b><small>web.dev</small></a>
+</div>
+
+<footer>
+  <p>DevTools changes every month. If something here does not match your Chrome, check the "New in DevTools" notes on developer.chrome.com.</p>
+</footer>
+</main>
+</body>
+</html>

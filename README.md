@@ -6,5 +6,6 @@ A small page with deliberate bugs, made for a talk on Chrome DevTools at DevFest
 - `/broken/` the page where nothing loads (bug 1)
 - `/stage2/` the page that shows a JSON error (bug 2)
 - `/fixed/` all three problems fixed
+- `/talk/` notes from the talk
 
 The events are fake and generated.
